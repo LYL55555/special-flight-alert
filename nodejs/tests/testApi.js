@@ -137,12 +137,17 @@ describe("Testing FlightRadarAPI version " + version, function() {
                 const bounds = frApi.getBounds(zone);
                 const flights = await frApi.getFlights(null, bounds);
 
-                for (const flight of flights) {
-                    expect(flight.latitude).to.be.below(zone["tl_y"]);
-                    expect(flight.latitude).to.be.above(zone["br_y"]);
+                const ymin = Math.min(zone["tl_y"], zone["br_y"]);
+                const ymax = Math.max(zone["tl_y"], zone["br_y"]);
+                const xmin = Math.min(zone["tl_x"], zone["br_x"]);
+                const xmax = Math.max(zone["tl_x"], zone["br_x"]);
 
-                    expect(flight.longitude).to.be.below(zone["br_x"]);
-                    expect(flight.latitude).to.be.above(zone["tl_x"]);
+                for (const flight of flights) {
+                    // Inclusive bounds: flights on the zone edge are valid (strict < failed e.g. lat 16 vs southamerica tl_y 16).
+                    expect(flight.latitude).to.be.at.least(ymin);
+                    expect(flight.latitude).to.be.at.most(ymax);
+                    expect(flight.longitude).to.be.at.least(xmin);
+                    expect(flight.longitude).to.be.at.most(xmax);
                 }
                 expect(flights.length).to.be.above(expected - 1);
             }
