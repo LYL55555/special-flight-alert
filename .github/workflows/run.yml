@@ -2,8 +2,8 @@ name: Flight Alert Bot
 
 on:
   schedule:
-    # Every 5 minutes (UTC). GitHub may delay busy periods slightly.
-    - cron: "*/5 * * * *"
+    # Four times per day UTC (00:00, 06:00, 12:00, 18:00). GitHub may delay slightly.
+    - cron: "0 0,6,12,18 * * *"
   workflow_dispatch:
 
 jobs:

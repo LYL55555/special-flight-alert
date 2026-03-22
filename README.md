@@ -17,7 +17,7 @@ A small Python tool that periodically scans [Flightradar24](https://www.flightra
 ## Requirements
 
 - **Python 3.10+** (3.11+ recommended; the project has been run on 3.13).
-- Network access to Flightradar24 endpoints used by [FlightRadarAPI](https://pypi.org/project/FlightRadarAPI/).
+- Network access to Flightradar24 endpoints used by the bundled **FlightRadarAPI** Python client (`python/`).
 - Optional: a **Telegram bot** token and chat ID for notifications.
 
 ## Setup
@@ -37,7 +37,7 @@ A small Python tool that periodically scans [Flightradar24](https://www.flightra
    source .venv/bin/activate   # Windows: .venv\Scripts\activate
    ```
 
-3. **Install dependencies**
+3. **Install dependencies** (editable install of the vendored SDK under `../python`)
 
    ```bash
    pip install -r requirements.txt
@@ -63,10 +63,10 @@ The bot does not open a long-lived WebSocket to Flightradar24; “real-time” h
 
 **GitHub Actions (scheduled cloud runs)**
 
-The workflow [`.github/workflows/run.yml`](.github/workflows/run.yml) runs **`python main.py` every 5 minutes** (plus manual **Run workflow**). That gives you **regular push notifications without keeping your laptop on**. Caveats:
+The workflow [`.github/workflows/run.yml`](.github/workflows/run.yml) runs **`python main.py` four times per day** at **00:00, 06:00, 12:00, and 18:00 UTC** (plus manual **Run workflow**). That gives you **periodic push notifications without keeping your laptop on**. Caveats:
 
 - GitHub’s `schedule` uses **UTC** and is **best-effort** (occasional delays).
-- Very frequent runs may hit **Flightradar24 / IP throttling**; if you see failures, increase the cron interval in the workflow or use `--no-details` / shorter horizons in `config.py`.
+- Heavy polling can still hit **Flightradar24 / IP throttling**; if you see failures, reduce frequency further or use `--no-details` / shorter horizons in `config.py`.
 - Artifact CSV/XLSX from Actions lives only on the runner for that job unless you add an **upload-artifact** step; Telegram is still the main “delivery” channel in this setup.
 
 **Repository secrets (Actions)**
@@ -142,9 +142,11 @@ Most behavior is controlled in **`alert_engine/config.py`** (`EngineConfig`). Co
 ## Repository layout (what we ship)
 
 - **`alert_engine/`** — Application code, `db/special_liveries.csv`, `requirements.txt`, `.env.example`, helper `scripts/`.
+- **`python/`** — Upstream **FlightRadarAPI** Python package (same tree as [JeanExtreme002/FlightRadarAPI](https://github.com/JeanExtreme002/FlightRadarAPI)); used via `pip install -r alert_engine/requirements.txt` (`-e ../python`).
+- **`nodejs/`** — Upstream **flightradarapi** npm package sources (optional; for Node.js users mirroring the original project).
+- **`docs/`**, **`mkdocs.yml`** — Documentation sources for the upstream SDK site.
+- **`sample data/`** — **Sample output** for **BOS** (CSV + Excel) from a single schedule run on **2026-03-22** (`python main.py --airports BOS --no-details`); static demo only, not updated live.
 - **`LICENSE`** — MIT (original FlightRadarAPI license; see below).
-
-Vendored copies of the full **python/** and **nodejs/** SDK trees are **not** included in this repository; install the client from PyPI as declared in `requirements.txt`.
 
 ## Acknowledgments
 

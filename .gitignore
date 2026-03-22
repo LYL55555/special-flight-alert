@@ -29,17 +29,4 @@ scratch*.csv
 ._*
 .idea/
 
-# Node (not shipped in this repo)
 node_modules/
-
-# Upstream FlightRadarAPI SDK sources — install `FlightRadarAPI` from PyPI instead
-/python/
-/nodejs/
-/docs/
-mkdocs.yml
-
-# Leftover upstream FlightRadarAPI GitHub files (this repo only uses workflows/run.yml)
-.github/ISSUE_TEMPLATE/
-.github/workflows/deploy-docs.yml
-.github/workflows/node-package.yml
-.github/workflows/python-package.yml
