@@ -397,6 +397,12 @@ def main() -> None:
                 current_lines=current_lines,
                 written_snapshots=written,
             )
+        elif os.environ.get("CI"):
+            print(
+                "Telegram: not configured (set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID "
+                "in repo Settings → Secrets and variables → Actions).",
+                file=sys.stderr,
+            )
 
     if args.loop:
         while True:

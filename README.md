@@ -81,6 +81,13 @@ In the GitHub repo: **Settings → Secrets and variables → Actions → New rep
 
 The workflow passes them into the job as environment variables (see `run.yml`). Optional: add `TELEGRAM_EACH_ALERT` to the `env:` block of the “Run bot” step if you want per-alert messages in CI.
 
+**GitHub Actions: job green but no Telegram**
+
+- Confirm secrets are **Repository secrets** on this repo (not only *Environments* unless the workflow uses that environment).
+- Names must match exactly: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` (no typos, no extra spaces in the name field).
+- You must have **messaged your bot at least once**; **group/supergroup** chat ids are usually **negative** numbers.
+- Re-run the workflow and open the **Run bot** log: if secrets were missing, you’ll see a stderr line starting with `Telegram: not configured`. If the API rejected the request, CI logs include the HTTP body from Telegram (e.g. wrong chat id).
+
 5. **Special liveries database**
 
    By default the engine loads `db/special_liveries.csv` under `alert_engine/`. Edit registrations and metadata to match the liveries you want to detect.

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import sys
 from pathlib import Path
 from typing import Optional
 
@@ -43,7 +44,14 @@ class TelegramNotifier:
             )
             r.raise_for_status()
             return True
-        except requests.RequestException:
+        except requests.RequestException as e:
+            if os.environ.get("CI"):
+                resp = getattr(e, "response", None)
+                body = (resp.text if resp is not None else "") or ""
+                print(
+                    f"Telegram sendMessage failed: {e} {body[:500]}",
+                    file=sys.stderr,
+                )
             return False
 
     def send_document(self, path: str | Path, caption: str = "") -> bool:
@@ -62,7 +70,18 @@ class TelegramNotifier:
                 r = requests.post(url, data=data, files=files, timeout=120)
             r.raise_for_status()
             return True
-        except (OSError, requests.RequestException):
+        except OSError as e:
+            if os.environ.get("CI"):
+                print(f"Telegram sendDocument file error: {e}", file=sys.stderr)
+            return False
+        except requests.RequestException as e:
+            if os.environ.get("CI"):
+                resp = getattr(e, "response", None)
+                body = (resp.text if resp is not None else "") or ""
+                print(
+                    f"Telegram sendDocument failed: {e} {body[:500]}",
+                    file=sys.stderr,
+                )
             return False
 
     def send_long_text(self, message: str, max_len: int = 4096) -> bool:
