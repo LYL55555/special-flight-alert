@@ -2,12 +2,37 @@ name: Flight Alert Bot
 
 on:
   schedule:
-    # Four times per day UTC (00:00, 06:00, 12:00, 18:00). GitHub may delay slightly.
-    - cron: "0 0,6,12,18 * * *"
+    # Every UTC hour; job runs only when America/New_York wall clock is 00:00, 06:00, 12:00, or 18:00
+    # (GitHub cron is UTC-only; this keeps Eastern local times through EST/EDT).
+    - cron: "0 * * * *"
   workflow_dispatch:
 
 jobs:
+  eastern-check:
+    runs-on: ubuntu-latest
+    outputs:
+      should_run: ${{ steps.check.outputs.should_run }}
+    steps:
+      - name: Gate on America/New_York 00/06/12/18 (or always on manual run)
+        id: check
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+            echo "Manual run: always execute."
+            exit 0
+          fi
+          H=$(TZ=America/New_York date +%H)
+          if [[ "$H" == "00" || "$H" == "06" || "$H" == "12" || "$H" == "18" ]]; then
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+            echo "America/New_York hour=$H — running."
+          else
+            echo "should_run=false" >> "$GITHUB_OUTPUT"
+            echo "America/New_York hour=$H — skip (scheduled runs only at 00/06/12/18 Eastern)."
+          fi
+
   run:
+    needs: eastern-check
+    if: needs.eastern-check.outputs.should_run == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -26,7 +51,7 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Run bot
-        run: python main.py
+        run: python main.py --airports PVD
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}

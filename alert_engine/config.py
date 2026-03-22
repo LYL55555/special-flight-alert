@@ -20,7 +20,7 @@ def _default_schedule_snapshot_xlsx_path() -> str:
 @dataclass(frozen=True)
 class EngineConfig:
     # IATA or ICAO per airport code accepted by FlightRadar24API.get_airport
-    airports: Tuple[str, ...] = ("PVD", "BOS", "JFK")
+    airports: Tuple[str, ...] = ("PVD",)
     # schedule_24h: airport arrivals/departures boards, next schedule_horizon_hours
     #   (no geographic radius — every row is a scheduled arr/dep at that airport, not "overhead traffic")
     # live: aircraft currently inside radius_meters of each airport

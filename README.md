@@ -63,10 +63,11 @@ The bot does not open a long-lived WebSocket to Flightradar24; “real-time” h
 
 **GitHub Actions (scheduled cloud runs)**
 
-The workflow [`.github/workflows/run.yml`](.github/workflows/run.yml) runs **`python main.py` four times per day** at **00:00, 06:00, 12:00, and 18:00 UTC** (plus manual **Run workflow**). That gives you **periodic push notifications without keeping your laptop on**. Caveats:
+The workflow [`.github/workflows/run.yml`](.github/workflows/run.yml) triggers **every UTC hour**, then runs **`python main.py --airports PVD`** only when **America/New_York** (US Eastern) local time is **00:00, 06:00, 12:00, or 18:00** — so you get **four runs per Eastern day** without hard-coding EST vs EDT. **Run workflow** (manual) always runs once. Caveats:
 
-- GitHub’s `schedule` uses **UTC** and is **best-effort** (occasional delays).
-- Heavy polling can still hit **Flightradar24 / IP throttling**; if you see failures, reduce frequency further or use `--no-details` / shorter horizons in `config.py`.
+- GitHub `schedule` is **best-effort** (occasional delays).
+- **24 lightweight “gate” jobs** per day are scheduled; **20** exit immediately when the Eastern hour is not 00/06/12/18.
+- Heavy polling can still hit **Flightradar24 / IP throttling**; if you see failures, reduce frequency or use `--no-details` / shorter horizons in `config.py`.
 - Artifact CSV/XLSX from Actions lives only on the runner for that job unless you add an **upload-artifact** step; Telegram is still the main “delivery” channel in this setup.
 
 **Repository secrets (Actions)**
