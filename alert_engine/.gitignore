@@ -1,0 +1,13 @@
+.venv/
+venv/
+__pycache__/
+*.pyc
+.env
+.env.*
+!.env.example
+
+# Runtime outputs
+alert data/
+logs/
+data/*.xlsx
+alerts_log.csv

@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+dist/
+build/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+
+# Secrets & local env (never commit real tokens)
+.env
+.env.*
+!.env.example
+
+# Alert engine: generated CSV/XLSX runs and logs
+alert_engine/alert data/
+alert_engine/logs/
+alert_engine/data/*.xlsx
+alerts_log.csv
+scratch*.csv
+._scratch*.csv
+
+# macOS / editor
+.DS_Store
+._*
+.idea/
+
+# Node (not shipped in this repo)
+node_modules/
+
+# Upstream FlightRadarAPI SDK sources — install `FlightRadarAPI` from PyPI instead
+/python/
+/nodejs/
+/docs/
+mkdocs.yml
+
+# Upstream GitHub templates / workflows not part of this app
+.github/
