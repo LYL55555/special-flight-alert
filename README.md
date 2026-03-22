@@ -12,7 +12,7 @@ A small Python tool that periodically scans [Flightradar24](https://www.flightra
   - Default layout: `alert_engine/alert data/{AIRPORT}/alerts_{AIRPORT}_{timestamp}.csv` and snapshot workbooks (`snapshot_*_latest.xlsx` / per-run copies).
   - Legacy single-file CSV: pass `--output path.csv` (disables the per-airport folder layout).
 - **Deduping:** Avoids re-alerting the same aircraft/reason fingerprint for a configurable TTL.
-- **Telegram:** Optional digest after each run plus Excel attachments; set `TELEGRAM_EACH_ALERT=1` for one message per emitted alert (noisy).
+- **Telegram:** Optional digest after each run plus Excel attachments; set `TELEGRAM_EACH_ALERT=1` for one message per emitted alert (noisy). See [Telegram real-time push](#telegram-bot-real-time-push) below.
 
 ## Requirements
 
@@ -51,6 +51,34 @@ A small Python tool that periodically scans [Flightradar24](https://www.flightra
    ```
 
    Do **not** commit `.env`. Only `.env.example` belongs in git.
+
+### Telegram Bot (real-time push)
+
+The bot does not open a long-lived WebSocket to Flightradar24; “real-time” here means **pushing to your phone as soon as a run finishes**. Each time `main.py` completes a cycle, if `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` are set, it sends a **digest** (new / expired / current qualifying flights) and attaches the **Excel snapshot** files when applicable. Set `TELEGRAM_EACH_ALERT=1` in the environment if you also want **one Telegram message per emitted alert** (can be very chatty on busy days).
+
+**Getting credentials**
+
+1. In Telegram, talk to [@BotFather](https://t.me/BotFather), create a bot, and copy the **HTTP API token** → this is `TELEGRAM_BOT_TOKEN`.
+2. Start a chat with your bot (send any message). To obtain your chat id, you can use the Telegram “getUpdates” API with your token, or message [@userinfobot](https://t.me/userinfobot) — the numeric id you send alerts to is `TELEGRAM_CHAT_ID` (groups use negative ids).
+
+**GitHub Actions (scheduled cloud runs)**
+
+The workflow [`.github/workflows/run.yml`](.github/workflows/run.yml) runs **`python main.py` every 5 minutes** (plus manual **Run workflow**). That gives you **regular push notifications without keeping your laptop on**. Caveats:
+
+- GitHub’s `schedule` uses **UTC** and is **best-effort** (occasional delays).
+- Very frequent runs may hit **Flightradar24 / IP throttling**; if you see failures, increase the cron interval in the workflow or use `--no-details` / shorter horizons in `config.py`.
+- Artifact CSV/XLSX from Actions lives only on the runner for that job unless you add an **upload-artifact** step; Telegram is still the main “delivery” channel in this setup.
+
+**Repository secrets (Actions)**
+
+In the GitHub repo: **Settings → Secrets and variables → Actions → New repository secret**, add exactly these **names**:
+
+| Secret name | Value |
+|-------------|--------|
+| `TELEGRAM_BOT_TOKEN` | Your bot token from BotFather |
+| `TELEGRAM_CHAT_ID` | Your (or group) chat id |
+
+The workflow passes them into the job as environment variables (see `run.yml`). Optional: add `TELEGRAM_EACH_ALERT` to the `env:` block of the “Run bot” step if you want per-alert messages in CI.
 
 5. **Special liveries database**
 

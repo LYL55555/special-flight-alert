@@ -37,6 +37,3 @@ node_modules/
 /nodejs/
 /docs/
 mkdocs.yml
-
-# Upstream GitHub templates / workflows not part of this app
-.github/
