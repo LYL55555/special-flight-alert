@@ -50,6 +50,15 @@ jobs:
       - name: Install deps
         run: pip install -r requirements.txt
 
+      # Persist snapshot_{AP}_latest.xlsx between runs so Telegram new/expired diffs work.
+      - name: Restore flight snapshot state
+        uses: actions/cache@v4
+        with:
+          path: alert_engine/alert data
+          key: flight-alert-snapshots-v1-PVD
+          restore-keys: |
+            flight-alert-snapshots-v1-
+
       - name: Check Telegram secrets
         run: |
           if [ -z "$TELEGRAM_BOT_TOKEN" ] || [ -z "$TELEGRAM_CHAT_ID" ]; then

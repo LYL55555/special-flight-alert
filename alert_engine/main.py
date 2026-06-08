@@ -8,7 +8,8 @@ Run from this directory:
   python main.py --live       # live traffic in radius around airport
   python main.py --loop       # repeat every poll_interval_seconds (override: --poll-seconds 14400)
 
-  Default outputs: alert data/{AIRPORT}/alerts_{AP}_{timestamp}.csv and snapshot_{AP}_{timestamp}.xlsx
+  Default outputs: alert data/{AIRPORT}/alerts_*, snapshot_* (all qualifying),
+  livery_history_* (cumulative paint log), livery_snapshot_* (horizon paint diff)
   Legacy single-file mode: pass --output path.csv (disables per-airport layout)
   Telegram: TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID in .env; optional TELEGRAM_EACH_ALERT=1
 """
@@ -31,6 +32,12 @@ from alerts.dedupe import Deduper
 from alerts.notifier import send_alert
 from alerts.scorer import AlertExtras, score_flight
 from alerts.run_paths import AlertRunPaths
+from alerts.livery_tables import (
+    update_livery_archive_by_airport,
+    update_livery_archive_single,
+    update_livery_horizon_by_airport,
+    update_livery_horizon_single,
+)
 from alerts.snapshot_report import (
     format_digest_line,
     qualifying_rows,
@@ -189,8 +196,8 @@ def _format_digest_text(
         f"📊 {airports_label} Special Flights - {send_stamp}\n"
         f"Horizon: ~{config.schedule_horizon_hours}h | mode: {config.scan_mode}\n"
         f"Current qualifying flights: {qualifying_n}\n\n"
-        f"{section('expired', n_expired, expired_lines)}\n\n"
-        f"{section('new', n_new, new_lines)}\n\n"
+        f"{section('expired (livery)', n_expired, expired_lines)}\n\n"
+        f"{section('new (livery)', n_new, new_lines)}\n\n"
         f"{section('current', qualifying_n, current_lines)}"
     )
 
@@ -238,10 +245,23 @@ def _post_run_snapshots(
     config: EngineConfig,
     qualifying: List[Tuple[Flight, int, List[str], AlertExtras]],
     run_paths: Optional[AlertRunPaths],
+    *,
+    run_ts: str,
 ) -> Tuple[int, int, List[str], List[str], int, List[Path]]:
     if run_paths is not None:
-        return update_snapshots_by_airport(qualifying, config, run_paths)
-    n_exp, n_new, el, nl, qn = update_single_snapshot(config, qualifying)
+        # Full qualifying workbook (all rare / military / livery hits).
+        _, _, _, _, qn_all, written = update_snapshots_by_airport(
+            qualifying, config, run_paths
+        )
+        update_livery_archive_by_airport(qualifying, config, run_paths)
+        n_exp, n_new, el, nl, _, livery_written = update_livery_horizon_by_airport(
+            qualifying, config, run_paths
+        )
+        written.extend(livery_written)
+        return n_exp, n_new, el, nl, qn_all, written
+    update_single_snapshot(config, qualifying)
+    update_livery_archive_single(config, qualifying, run_ts=run_ts)
+    n_exp, n_new, el, nl, qn = update_livery_horizon_single(config, qualifying)
     return n_exp, n_new, el, nl, qn, [Path(config.schedule_snapshot_xlsx_path)]
 
 
@@ -364,7 +384,7 @@ def main() -> None:
             run_paths=run_paths,
         )
         n_exp, n_new, el, nl, qn, written = _post_run_snapshots(
-            config, outcome.qualifying, run_paths
+            config, outcome.qualifying, run_paths, run_ts=run_ts
         )
         rows = qualifying_rows(
             outcome.qualifying, config, run_paths=run_paths

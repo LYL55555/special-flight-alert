@@ -61,15 +61,18 @@ class Core(ABC):
     static_zones = static_zones
 
     headers = {
-        "accept-encoding": "gzip, br",
-        "accept-language": "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7",
+        "accept-encoding": "gzip, deflate, br, zstd",
+        "accept-language": "en-US,en;q=0.9",
         "cache-control": "max-age=0",
         "origin": "https://www.flightradar24.com",
         "referer": "https://www.flightradar24.com/",
+        "sec-ch-ua": '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"',
+        "sec-ch-ua-mobile": "?0",
+        "sec-ch-ua-platform": '"Windows"',
         "sec-fetch-dest": "empty",
         "sec-fetch-mode": "cors",
         "sec-fetch-site": "same-site",
-        "user-agent": "Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36"
+        "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
     }
 
     json_headers = headers.copy()
@@ -80,6 +83,11 @@ class Core(ABC):
 
     html_headers = headers.copy()
     html_headers["accept"] = "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
+    html_headers["sec-fetch-dest"] = "document"
+    html_headers["sec-fetch-mode"] = "navigate"
+    html_headers["sec-fetch-site"] = "same-origin"
+    html_headers["sec-fetch-user"] = "?1"
+    html_headers["upgrade-insecure-requests"] = "1"
 
 
 class Countries(Enum):

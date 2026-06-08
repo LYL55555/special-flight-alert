@@ -6,7 +6,8 @@ import brotli
 import json
 import gzip
 
-import requests
+from curl_cffi import requests as http
+import requests.models
 import requests.structures
 
 from .errors import CloudflareError
@@ -52,10 +53,17 @@ class APIRequest(object):
             "cookies": cookies
         }
 
-        request_method = requests.get if data is None else requests.post
+        request_method = http.get if data is None else http.post
 
         if params: url += "?" + "&".join(["{}={}".format(k, v) for k, v in params.items()])
-        self.__response = request_method(url, headers=headers, cookies=cookies, data=data, timeout=timeout)
+        self.__response = request_method(
+            url,
+            headers=headers,
+            cookies=cookies,
+            data=data,
+            timeout=timeout,
+            impersonate="chrome131",
+        )
 
         if self.get_status_code() == 520:
             raise CloudflareError(

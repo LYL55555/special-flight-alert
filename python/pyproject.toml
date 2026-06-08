@@ -21,6 +21,7 @@ exclude = ["tests", ".flake8"]
 requires-python = ">=3.7"
 dependencies = [
   "Brotli",
+  "curl_cffi",
   "requests",
 ]
 

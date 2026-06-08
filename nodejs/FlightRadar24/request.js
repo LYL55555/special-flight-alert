@@ -1,8 +1,89 @@
 const {CloudflareError} = require("./errors");
+const {Session, ClientIdentifier, initTLS} = require("node-tls-client");
 
 const FormData = require("form-data");
 const fetch = (...args) => import("node-fetch").then(({default: fetch}) => fetch(...args));
 
+let tlsInitPromise = null;
+let tlsSession = null;
+
+/**
+ * Return a shared TLS session that impersonates Chrome.
+ *
+ * @return {Promise<Session>}
+ */
+async function getTlsSession() {
+    if (!tlsInitPromise) {
+        tlsInitPromise = initTLS();
+    }
+    await tlsInitPromise;
+
+    if (!tlsSession) {
+        tlsSession = new Session({clientIdentifier: ClientIdentifier.chrome_131});
+    }
+    return tlsSession;
+}
+
+/**
+ * Return whether the request should keep node-fetch for binary image payloads.
+ *
+ * @param {object|null} headers
+ * @return {boolean}
+ */
+function needsBinaryFetch(headers) {
+    const accept = (headers?.accept || headers?.Accept || "").toLowerCase();
+    const primaryType = accept.split(",")[0].trim();
+    return primaryType.startsWith("image/");
+}
+
+/**
+ * Wrap a node-tls-client response in a fetch-compatible object.
+ *
+ * @param {object} tlsResponse
+ * @return {object}
+ */
+function wrapTlsResponse(tlsResponse) {
+    const headerMap = {};
+
+    for (const [key, value] of Object.entries(tlsResponse.headers || {})) {
+        headerMap[key.toLowerCase()] = Array.isArray(value) ? value.join(", ") : value;
+    }
+
+    const body = tlsResponse.body || "";
+
+    return {
+        status: tlsResponse.status,
+        statusText: tlsResponse.status >= 200 && tlsResponse.status < 300 ? "OK" : "Forbidden",
+        headers: {
+            forEach(callback) {
+                for (const [key, value] of Object.entries(headerMap)) {
+                    callback(value, key);
+                }
+            },
+            raw() {
+                const raw = {};
+
+                if (tlsResponse.cookies) {
+                    raw["set-cookie"] = Object.entries(tlsResponse.cookies).map(
+                        ([key, value]) => `${key}=${value}`,
+                    );
+                }
+
+                return raw;
+            },
+        },
+        async json() {
+            return JSON.parse(body);
+        },
+        async text() {
+            return body;
+        },
+        async arrayBuffer() {
+            const buffer = Buffer.from(body, "utf8");
+            return buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
+        },
+    };
+}
 
 /**
  * Class to make requests to the FlightRadar24.
@@ -52,23 +133,50 @@ class APIRequest {
      * @return {this}
      */
     async receive() {
-        const settings = {
-            method: this.requestMethod,
-            headers: this.requestParams["headers"],
-            cookies: this.requestParams["cookies"],
-        };
+        const headers = {...(this.requestParams["headers"] || {})};
+        const cookies = this.requestParams["cookies"];
 
-        if (settings["method"] == "POST") {
+        if (this.requestMethod === "POST") {
             const formData = new FormData();
 
             Object.entries(this.requestParams["data"]).forEach(([key, value]) => {
                 formData.append(key, value);
             });
 
-            settings["body"] = formData;
+            if (needsBinaryFetch(headers)) {
+                const settings = {
+                    method: "POST",
+                    headers: {...headers, ...formData.getHeaders()},
+                    body: formData,
+                    cookies: cookies,
+                };
+                this.__response = await fetch(this.url, settings);
+            }
+            else {
+                const session = await getTlsSession();
+                const tlsResponse = await session.post(this.url, {
+                    headers: {...headers, ...formData.getHeaders()},
+                    body: formData.getBuffer(),
+                    cookies: cookies,
+                });
+                this.__response = wrapTlsResponse(tlsResponse);
+            }
         }
-
-        this.__response = await fetch(this.url, settings);
+        else if (needsBinaryFetch(headers)) {
+            this.__response = await fetch(this.url, {
+                method: "GET",
+                headers: headers,
+                cookies: cookies,
+            });
+        }
+        else {
+            const session = await getTlsSession();
+            const tlsResponse = await session.get(this.url, {
+                headers: headers,
+                cookies: cookies,
+            });
+            this.__response = wrapTlsResponse(tlsResponse);
+        }
 
         if (this.getStatusCode() == 520) {
             throw new CloudflareError(

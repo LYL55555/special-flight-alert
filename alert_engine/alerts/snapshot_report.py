@@ -217,12 +217,17 @@ def diff_qualifying(
     return n_exp, n_new, expired_lines, new_lines
 
 
-def write_qualifying_xlsx(path: Path, rows: List[Dict[str, Any]]) -> None:
+def write_qualifying_xlsx(
+    path: Path,
+    rows: List[Dict[str, Any]],
+    *,
+    columns: Tuple[str, ...] = SNAPSHOT_XLSX_COLUMNS,
+) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     wb = Workbook()
     ws = wb.active
     ws.title = "qualifying"
-    headers = list(SNAPSHOT_XLSX_COLUMNS)
+    headers = list(columns)
     if not rows:
         ws.append(headers)
         _autofit_columns(ws, headers, [])

@@ -1,4 +1,5 @@
 Brotli
 pytest
+curl_cffi
 requests
 beautifulsoup4

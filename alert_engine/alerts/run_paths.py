@@ -30,3 +30,17 @@ class AlertRunPaths:
     def snapshot_run_path(self, airport: str) -> Path:
         ap = (airport or "UNK").strip().upper() or "UNK"
         return self.airport_dir(ap) / f"snapshot_{ap}_{self.run_ts}.xlsx"
+
+    def livery_history_path(self, airport: str) -> Path:
+        """Cumulative special-livery reference log (never reset between runs)."""
+        ap = (airport or "UNK").strip().upper() or "UNK"
+        return self.airport_dir(ap) / f"livery_history_{ap}.xlsx"
+
+    def livery_snapshot_latest_path(self, airport: str) -> Path:
+        """Horizon special-livery rows for new/expired diff vs previous run."""
+        ap = (airport or "UNK").strip().upper() or "UNK"
+        return self.airport_dir(ap) / f"livery_snapshot_{ap}_latest.xlsx"
+
+    def livery_snapshot_run_path(self, airport: str) -> Path:
+        ap = (airport or "UNK").strip().upper() or "UNK"
+        return self.airport_dir(ap) / f"livery_snapshot_{ap}_{self.run_ts}.xlsx"
