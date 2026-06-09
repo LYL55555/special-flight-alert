@@ -5,9 +5,9 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-if ! python3 -c "import fastapi, uvicorn" 2>/dev/null; then
+if ! python3 -c "import fastapi, uvicorn, FlightRadar24" 2>/dev/null; then
   echo "Installing Python dependencies (first run only)..."
-  pip install -r alert_engine/requirements.txt
+  "$ROOT/scripts/install_deps.sh"
 fi
 
 cleanup() {
