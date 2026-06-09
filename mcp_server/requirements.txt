@@ -1,0 +1,2 @@
+# MCP only. Also install alert_engine deps: pip install -r alert_engine/requirements.txt
+mcp>=1.2

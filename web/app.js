@@ -1,5 +1,25 @@
 const config = window.SPECIAL_FLIGHT_CONFIG || {};
-const API_BASE_URL = (config.apiBaseUrl || "http://127.0.0.1:8000").replace(/\/$/, "");
+
+function resolveApiBaseUrls() {
+  const urls = [];
+  const host = window.location.hostname;
+  const isLocal = host === "localhost" || host === "127.0.0.1";
+
+  if (isLocal) {
+    urls.push("http://127.0.0.1:8000");
+  }
+  if (config.tunnelApiBaseUrl) {
+    urls.push(String(config.tunnelApiBaseUrl).replace(/\/$/, ""));
+  }
+  if (config.apiBaseUrl) {
+    urls.push(String(config.apiBaseUrl).replace(/\/$/, ""));
+  }
+
+  return [...new Set(urls.filter(Boolean))];
+}
+
+const API_BASE_URLS = resolveApiBaseUrls();
+const API_BASE_URL = API_BASE_URLS[0] || "http://127.0.0.1:8000";
 
 const AIRPORTS = [
   { code: "PVD", name: "Rhode Island T. F. Green International", city: "Providence", region: "Rhode Island, United States", aliases: ["tf green", "providence"] },
@@ -684,6 +704,30 @@ function renderFlights(payload, options = {}) {
   });
 }
 
+async function fetchScanPayload(airport) {
+  const errors = [];
+  for (let i = 0; i < API_BASE_URLS.length; i += 1) {
+    const base = API_BASE_URLS[i];
+    const hasFallback = i < API_BASE_URLS.length - 1;
+    try {
+      const response = await fetch(`${base}/api/scan?airport=${encodeURIComponent(airport)}`);
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        errors.push(`${base}: HTTP ${response.status}`);
+        continue;
+      }
+      if (payload.status === "degraded" && hasFallback) {
+        errors.push(`${base}: live data unavailable`);
+        continue;
+      }
+      return { payload, base };
+    } catch (error) {
+      errors.push(`${base}: ${error.message || "network error"}`);
+    }
+  }
+  throw new Error(errors.join(" · ") || t("searchErrorBody"));
+}
+
 async function scanAirport(airport) {
   setBusy(true);
   currentPayload = null;
@@ -697,11 +741,14 @@ async function scanAirport(airport) {
   emptyState.querySelector("p").textContent = t("searchingBody");
 
   try {
-    const response = await fetch(`${API_BASE_URL}/api/scan?airport=${encodeURIComponent(airport)}`);
-    const payload = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      throw new Error(t("searchErrorBody"));
-    }
+    const { payload, base } = await fetchScanPayload(airport);
+    sourceText.textContent = base.includes("127.0.0.1") || base.includes("localhost")
+      ? "Local"
+      : base.includes("trycloudflare.com")
+        ? "Tunnel"
+        : payload.cached
+          ? `${t("statusCached")} ${payload.cache_age_seconds}s`
+          : "FR24";
 
     renderFlights(payload);
     if (payload.status === "degraded") {
