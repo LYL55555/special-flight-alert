@@ -77,6 +77,8 @@ const COPY = {
     airportNeeded: "Choose an airport",
     airportNeededBody: "Type a city, airport name, or airport code, then choose one of the suggestions.",
     searchErrorBody: "Could not search this airport right now. Check the airport code or choose one from the suggestions.",
+    degradedBody: "Live flight data is temporarily unavailable. Please try again later.",
+    statusDegraded: "Unavailable",
     unavailableTitle: "{airport} search unavailable",
     fallbackUnknown: "Unknown",
     fallbackNoReg: "No registration",
@@ -142,6 +144,8 @@ const COPY = {
     airportNeeded: "请选择机场",
     airportNeededBody: "输入城市、机场名或机场码，然后从提示里选择机场。",
     searchErrorBody: "暂时无法搜索这个机场。请检查机场码，或从提示里选择一个机场。",
+    degradedBody: "实时航班数据暂时不可用，请稍后再试。",
+    statusDegraded: "不可用",
     unavailableTitle: "{airport} 暂时无法搜索",
     fallbackUnknown: "未知",
     fallbackNoReg: "暂无注册号",
@@ -604,6 +608,17 @@ function renderFlights(payload, options = {}) {
   currentPayload = payload;
   updateAirlineFilter(payload);
   resultsList.innerHTML = "";
+
+  if (payload.status === "degraded") {
+    countText.textContent = "0";
+    sourceText.textContent = payload.source === "fallback" ? t("statusDegraded") : t("statusError");
+    resultTitle.textContent = t("unavailableTitle", { airport: payload.airport });
+    queryTime.textContent = "";
+    emptyState.hidden = false;
+    emptyState.querySelector("p").textContent = payload.message || t("degradedBody");
+    return;
+  }
+
   const flights = filteredAndSortedFlights(payload);
 
   countText.textContent = String(flights.length);
@@ -689,7 +704,11 @@ async function scanAirport(airport) {
     }
 
     renderFlights(payload);
-    setStatus(payload.cached ? t("statusCached") : t("statusComplete"), payload.cached ? "cached" : "good");
+    if (payload.status === "degraded") {
+      setStatus(t("statusDegraded"), "bad");
+    } else {
+      setStatus(payload.cached ? t("statusCached") : t("statusComplete"), payload.cached ? "cached" : "good");
+    }
   } catch (error) {
     currentPayload = null;
     resultsList.innerHTML = "";

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import copy
+import logging
 import os
 import sys
 import time
@@ -32,6 +33,10 @@ from services.airport_scan import (  # noqa: E402
 
 
 APP_NAME = "Special Flight Alert API"
+logger = logging.getLogger(__name__)
+FALLBACK_MESSAGE = (
+    "Live FlightRadar24 data is temporarily unavailable. Please try again later."
+)
 SCAN_TIMEOUT_SECONDS = float(os.environ.get("SCAN_TIMEOUT_SECONDS", "30"))
 CACHE_TTL_SECONDS = int(os.environ.get("SCAN_CACHE_TTL_SECONDS", "300"))
 RATE_LIMIT_PER_MINUTE = int(os.environ.get("SCAN_RATE_LIMIT_PER_MINUTE", "3"))
@@ -57,8 +62,8 @@ app = FastAPI(title=APP_NAME, lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS or ["*"],
-    allow_credentials=False,
-    allow_methods=["GET"],
+    allow_credentials=True,
+    allow_methods=["*"],
     allow_headers=["*"],
 )
 
@@ -106,6 +111,28 @@ def _store_cache(code: str, payload: dict[str, Any]) -> None:
     _cache[code] = (time.monotonic(), copy.deepcopy(payload))
 
 
+def _scan_fallback(airport: str, exc: Exception) -> dict[str, Any]:
+    logger.exception("Airport scan failed for %s", airport, exc_info=exc)
+    return {
+        "airport": airport.upper(),
+        "status": "degraded",
+        "source": "fallback",
+        "message": FALLBACK_MESSAGE,
+        "flights": [],
+        "error": str(exc),
+    }
+
+
+@app.get("/")
+def root() -> dict[str, str]:
+    return {
+        "name": "Special Flight Alert API",
+        "docs": "/docs",
+        "health": "/health",
+        "scan": "/api/scan?airport=PVD",
+    }
+
+
 @app.get("/health")
 def health() -> dict[str, bool]:
     return {"ok": True}
@@ -133,19 +160,13 @@ async def scan_airport(
             timeout=SCAN_TIMEOUT_SECONDS,
         )
     except asyncio.TimeoutError as exc:
-        raise HTTPException(
-            status_code=504,
-            detail="Scan timed out. Live scans can take 10-30 seconds; please try again.",
-        ) from exc
+        return _scan_fallback(code, exc)
     except InvalidAirportCodeError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except AirportScanError as exc:
-        raise HTTPException(status_code=502, detail=str(exc)) from exc
+        return _scan_fallback(code, exc)
     except Exception as exc:
-        raise HTTPException(
-            status_code=502,
-            detail="FlightRadar24 is temporarily unavailable. Please try again later.",
-        ) from exc
+        return _scan_fallback(code, exc)
 
     _store_cache(code, payload)
     return payload
