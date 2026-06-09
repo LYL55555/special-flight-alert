@@ -1,8 +1,8 @@
-window.SPECIAL_FLIGHT_CONFIG = {
-  // Vercel / public frontend: optional home tunnel (free). Run ./scripts/run_tunnel.sh
-  // and paste the https://....trycloudflare.com URL here. Leave "" if not running.
-  tunnelApiBaseUrl: "https://occupied-mills-dinner-pennsylvania.trycloudflare.com",
-
-  // Always-on fallback (Render). May return degraded when FR24 blocks datacenter IP.
-  apiBaseUrl: "https://special-flight-alert.onrender.com",
+// Production API order: Cloudflare Named Tunnel (primary) → Render (fallback).
+// Replace YOUR_DOMAIN.com with your real domain before going live.
+window.APP_CONFIG = {
+  apiBaseUrls: [
+    "https://flight-api.YOUR_DOMAIN.com",
+    "https://special-flight-alert.onrender.com",
+  ],
 };

@@ -1,0 +1,9 @@
+// Local development only — copy to config.local.js (gitignored).
+// Loaded after config.js and overrides APP_CONFIG for localhost testing.
+window.APP_CONFIG = {
+  apiBaseUrls: [
+    "http://127.0.0.1:8000",
+    "https://flight-api.YOUR_DOMAIN.com",
+    "https://special-flight-alert.onrender.com",
+  ],
+};

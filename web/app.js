@@ -1,30 +1,12 @@
-const config = window.SPECIAL_FLIGHT_CONFIG || {};
+const APP_CONFIG = window.APP_CONFIG || {};
 
 function resolveApiBaseUrls() {
-  const urls = [];
-  const host = window.location.hostname;
-  const isLocal = host === "localhost" || host === "127.0.0.1";
-
-  if (isLocal) {
-    if (config.localApiBaseUrl) {
-      urls.push(String(config.localApiBaseUrl).replace(/\/$/, ""));
-    }
-    for (const port of [8000, 8001, 8002, 8003]) {
-      urls.push(`http://127.0.0.1:${port}`);
-    }
+  const urls = APP_CONFIG.apiBaseUrls;
+  if (!Array.isArray(urls) || urls.length === 0) {
+    return [];
   }
-  if (config.tunnelApiBaseUrl) {
-    urls.push(String(config.tunnelApiBaseUrl).replace(/\/$/, ""));
-  }
-  if (config.apiBaseUrl) {
-    urls.push(String(config.apiBaseUrl).replace(/\/$/, ""));
-  }
-
-  return [...new Set(urls.filter(Boolean))];
+  return [...new Set(urls.map((u) => String(u).replace(/\/$/, "")).filter(Boolean))];
 }
-
-const API_BASE_URLS = resolveApiBaseUrls();
-const API_BASE_URL = API_BASE_URLS[0] || "http://127.0.0.1:8000";
 
 const AIRPORTS = [
   { code: "PVD", name: "Rhode Island T. F. Green International", city: "Providence", region: "Rhode Island, United States", aliases: ["tf green", "providence"] },
@@ -709,28 +691,53 @@ function renderFlights(payload, options = {}) {
   });
 }
 
-async function fetchScanPayload(airport) {
-  const errors = [];
-  for (let i = 0; i < API_BASE_URLS.length; i += 1) {
-    const base = API_BASE_URLS[i];
-    const hasFallback = i < API_BASE_URLS.length - 1;
+function apiSourceLabel(base, payload) {
+  if (base.includes("127.0.0.1") || base.includes("localhost")) return "Local";
+  if (base.includes("onrender.com")) return payload.cached ? `${t("statusCached")} ${payload.cache_age_seconds}s` : "Render";
+  if (base.includes("flight-api.")) return "Tunnel";
+  return payload.cached ? `${t("statusCached")} ${payload.cache_age_seconds}s` : "FR24";
+}
+
+async function fetchScanWithFailover(airport) {
+  const bases = resolveApiBaseUrls();
+  let lastError = null;
+
+  if (bases.length === 0) {
+    throw new Error(t("searchErrorBody"));
+  }
+
+  for (const base of bases) {
     try {
-      const response = await fetch(`${base}/api/scan?airport=${encodeURIComponent(airport)}`);
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        errors.push(`${base}: HTTP ${response.status}`);
-        continue;
+      const url = `${base.replace(/\/$/, "")}/api/scan?airport=${encodeURIComponent(airport)}`;
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 20000);
+
+      const res = await fetch(url, { signal: controller.signal });
+      clearTimeout(timeout);
+
+      let data = null;
+      try {
+        data = await res.json();
+      } catch (e) {
+        throw new Error(`Invalid JSON from ${base}`);
       }
-      if (payload.status === "degraded" && hasFallback) {
-        errors.push(`${base}: live data unavailable`);
-        continue;
+
+      if (!res.ok) {
+        const msg = data?.detail || data?.message || `HTTP ${res.status} from ${base}`;
+        if (res.status >= 500 || res.status === 429) {
+          throw new Error(msg);
+        }
+        return { data, apiBaseUrl: base };
       }
-      return { payload, base };
-    } catch (error) {
-      errors.push(`${base}: ${error.message || "network error"}`);
+
+      return { data, apiBaseUrl: base };
+    } catch (e) {
+      lastError = e;
+      console.warn("API failed:", base, e);
     }
   }
-  throw new Error(errors.join(" · ") || t("searchErrorBody"));
+
+  throw lastError || new Error(t("degradedBody"));
 }
 
 async function scanAirport(airport) {
@@ -746,14 +753,8 @@ async function scanAirport(airport) {
   emptyState.querySelector("p").textContent = t("searchingBody");
 
   try {
-    const { payload, base } = await fetchScanPayload(airport);
-    sourceText.textContent = base.includes("127.0.0.1") || base.includes("localhost")
-      ? "Local"
-      : base.includes("trycloudflare.com")
-        ? "Tunnel"
-        : payload.cached
-          ? `${t("statusCached")} ${payload.cache_age_seconds}s`
-          : "FR24";
+    const { data: payload, apiBaseUrl: base } = await fetchScanWithFailover(airport);
+    sourceText.textContent = apiSourceLabel(base, payload);
 
     renderFlights(payload);
     if (payload.status === "degraded") {
@@ -769,8 +770,8 @@ async function scanAirport(airport) {
     resultTitle.textContent = t("unavailableTitle", { airport });
     queryTime.textContent = "";
     emptyState.hidden = false;
-    emptyState.querySelector("p").textContent = error.message || t("searchErrorBody");
-    setStatus(t("statusError"), "bad");
+    emptyState.querySelector("p").textContent = t("degradedBody");
+    setStatus(t("statusDegraded"), "bad");
   } finally {
     setBusy(false);
   }
