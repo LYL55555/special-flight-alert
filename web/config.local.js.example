@@ -1,5 +1,5 @@
-// Local development only — copy to config.local.js (gitignored).
-// Bypasses Vercel proxy and talks to uvicorn on your Mac.
+// 本地覆盖配置 — 复制为 config.local.js（已 gitignore，不会提交）
+// Local override — copy to config.local.js (gitignored)
 window.APP_CONFIG = {
   apiBaseUrl: "http://127.0.0.1:8000",
 };

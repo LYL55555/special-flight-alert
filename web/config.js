@@ -1,5 +1,4 @@
-// Production: same-origin Vercel proxy at /api/scan (see web/api/scan.js).
-// Tunnel URL lives in Vercel env TUNNEL_API_BASE_URL — not in this repo.
+// Local-first: talk to the API on your machine (see ./scripts/run_demo.sh).
 window.APP_CONFIG = {
-  apiBaseUrl: "",
+  apiBaseUrl: "http://127.0.0.1:8000",
 };
