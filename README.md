@@ -10,6 +10,23 @@ This repo is designed as a **local-first** project: run the API and web UI on yo
 
 ---
 
+## Features
+
+Everything runs on your machine (or via GitHub Actions for scheduled scans). Home broadband works best with Flightradar24.
+
+| Feature | What it does |
+|---------|--------------|
+| **Telegram push** | After each alert-engine scan: text digest + Excel snapshots (configure locally or in GitHub Actions secrets) |
+| **Web UI** | Bilingual (EN/zh) search board — filter airlines, sort by time, browse special liveries with photos |
+| **Cursor MCP** | Ask the AI in Cursor to scan an airport for you |
+| **Alert engine (CLI)** | Score flights, export CSV/Excel, run on a schedule (`--loop`) |
+| **HTTP API** | `GET /api/scan?airport=PVD` for scripts and the web UI |
+| **GitHub Actions** | Scheduled **PVD** scans at Eastern 00:00 / 06:00 / 12:00 / 18:00, optional Telegram via repository secrets |
+
+> **Notifications:** Telegram is supported. Email is not implemented in this repo.
+
+---
+
 ## Screenshots
 
 **Search** — pick an airport and scan for special flights.
@@ -22,18 +39,7 @@ This repo is designed as a **local-first** project: run the API and web UI on yo
 
 ---
 
-## What you get
-
-| Component | Description |
-|-----------|-------------|
-| **Web UI** (`web/`) | Search by airport code (PVD, JFK, LAX, …), filter results, bilingual EN/zh |
-| **HTTP API** (`api/`) | FastAPI service: `GET /api/scan?airport=PVD` |
-| **Alert engine** (`alert_engine/`) | CLI daemon: score flights, CSV/Excel output, optional Telegram |
-| **MCP server** (`mcp_server/`) | Cursor integration — ask the agent to scan an airport |
-
----
-
-## Quick start (web demo)
+## Install
 
 **Requirements:** Python 3.10+
 
@@ -41,25 +47,125 @@ This repo is designed as a **local-first** project: run the API and web UI on yo
 git clone https://github.com/LYL55555/special-flight-alert.git
 cd special-flight-alert
 
-# Install dependencies (from repo root — not alert_engine/)
+# From repo root — not alert_engine/
 pip install -r requirements.txt
 
-# Optional: MCP support for Cursor
+# Optional: Cursor MCP
 pip install -r mcp_server/requirements.txt
+```
 
-# One command: API :8000 + web UI :8080
+**Never commit real tokens.** Credentials go in `alert_engine/.env` (gitignored) or GitHub **Repository Secrets** for CI — not in source code.
+
+---
+
+## Telegram push
+
+After each alert-engine run, the bot sends a **text digest** (new / expired / current special flights) and **Excel snapshot** attachments.
+
+**Default airport:** **PVD** (including GitHub Actions in `.github/workflows/run.yml`). Use `--airports` to scan other codes locally.
+
+### 1. Create a bot
+
+1. Open Telegram and chat with [@BotFather](https://t.me/BotFather).
+2. Send `/newbot`, follow the prompts, and copy the **bot token**.
+
+### 2. Get your chat ID
+
+1. Open a chat with your new bot and send `/start` (required — the bot cannot message you until you do).
+2. In a browser, open:
+
+   `https://api.telegram.org/bot<YOUR_TOKEN>/getUpdates`
+
+   Replace `<YOUR_TOKEN>` with your real token.
+3. In the JSON response, find `"chat":{"id":123456789}` — that number is your **chat ID**.
+
+> Tip: [@userinfobot](https://t.me/userinfobot) can also show your numeric user ID.
+
+### 3. Configure (local)
+
+```bash
+cp alert_engine/.env.example alert_engine/.env
+```
+
+Edit `alert_engine/.env`:
+
+```bash
+TELEGRAM_BOT_TOKEN=your_bot_token_here
+TELEGRAM_CHAT_ID=your_chat_id_here
+```
+
+### 4. Run a scan
+
+```bash
+cd alert_engine
+python main.py --airports PVD
+```
+
+You should receive:
+
+- A **digest message** listing flight changes since the last run
+- **Excel files** attached (under `alert_engine/alert data/`)
+
+### Optional: one message per alert
+
+By default only the digest is sent. To also get a separate message for every qualifying flight (noisy on busy airports):
+
+```bash
+TELEGRAM_EACH_ALERT=1
+```
+
+Add that line to `alert_engine/.env`.
+
+### Scheduled pushes (loop mode)
+
+```bash
+cd alert_engine
+python main.py --loop --poll-seconds 14400 --airports PVD
+```
+
+`14400` = every 4 hours. Change airports in the command or in `alert_engine/config.py`.
+
+### GitHub Actions (CI)
+
+The workflow runs `python main.py --airports PVD` on a schedule. Add the same two variables under **Settings → Secrets and variables → Actions**:
+
+- `TELEGRAM_BOT_TOKEN`
+- `TELEGRAM_CHAT_ID`
+
+You can also trigger a run manually from the **Actions** tab (`workflow_dispatch`).
+
+---
+
+## Web UI
+
+```bash
 ./scripts/run_demo.sh
 ```
 
-Open **http://127.0.0.1:8080** and search **PVD**, **JFK**, or **LAX**.
-
-Press `Ctrl+C` to stop.
+Opens API on **:8000** and the web UI on **:8080**. Browse to **http://127.0.0.1:8080** and search **PVD**, **JFK**, or **LAX**. Press `Ctrl+C` to stop.
 
 ### Port already in use?
 
 ```bash
 ./scripts/stop_demo.sh   # frees 8000 / 8080, stops Docker stack if any
 ./scripts/run_demo.sh
+```
+
+### Web → API address
+
+Default is in `web/config.js`:
+
+```javascript
+window.APP_CONFIG = {
+  apiBaseUrl: "http://127.0.0.1:8000",
+};
+```
+
+If the API runs on another port:
+
+```bash
+cp web/config.local.js.example web/config.local.js
+# edit apiBaseUrl — config.local.js is gitignored
 ```
 
 ### API only (no web UI)
@@ -77,40 +183,6 @@ python3 -m uvicorn api.main:app --host 127.0.0.1 --port 8000
 
 ---
 
-## Configuration
-
-### Web → API address
-
-Default is in `web/config.js`:
-
-```javascript
-window.APP_CONFIG = {
-  apiBaseUrl: "http://127.0.0.1:8000",
-};
-```
-
-If the API runs on another port, copy the example override:
-
-```bash
-cp web/config.local.js.example web/config.local.js
-# edit apiBaseUrl — config.local.js is gitignored
-```
-
-### Secrets (Telegram, etc.)
-
-**Never commit real tokens.** Use a local `.env` file only:
-
-```bash
-cp alert_engine/.env.example alert_engine/.env
-# Edit alert_engine/.env — TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
-```
-
-`.env` is listed in `.gitignore`. Only `.env.example` (empty placeholders) belongs in git.
-
-For GitHub Actions scheduled runs, put the same names in **Repository Secrets** — not in source code.
-
----
-
 ## Cursor MCP
 
 1. Install deps: `pip install -r mcp_server/requirements.txt` and `pip install -r requirements.txt`
@@ -123,12 +195,12 @@ Tools: `scan_airport`, `health_check`
 
 ## Alert engine (CLI)
 
-For background monitoring, CSV alerts, Excel snapshots, and optional Telegram digests:
+Background monitoring, CSV alerts, and Excel snapshots (pairs with [Telegram push](#telegram-push) above):
 
 ```bash
 cd alert_engine
 python main.py --airports PVD          # one-shot schedule scan
-python main.py --live --airports BOS   # live radius mode
+python main.py --live --airports PVD   # live radius mode
 python main.py --loop --poll-seconds 14400
 python main.py --help
 ```
@@ -155,6 +227,7 @@ special-flight-alert/
 ├── web/                 # Static frontend
 ├── python/              # Vendored FlightRadarAPI SDK
 ├── mcp_server/          # Cursor MCP
+├── img/                 # README screenshots
 ├── scripts/
 │   ├── install_deps.sh  # pip install helper
 │   ├── run_demo.sh      # local API + web UI

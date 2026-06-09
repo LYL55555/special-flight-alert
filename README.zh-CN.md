@@ -10,6 +10,23 @@
 
 ---
 
+## 功能概览
+
+所有模块都可以在本机运行；定时任务也可通过 GitHub Actions 在云端跑（家庭宽带访问 FR24 最稳定）。
+
+| 功能 | 说明 |
+|------|------|
+| **Telegram 推送** | 每次扫描后发文字摘要 + Excel 快照（本地 `.env` 或 GitHub Secrets 配置） |
+| **网页前端** | 中英文界面，按航司筛选、按时间排序，查看特殊涂装与飞机照片 |
+| **Cursor MCP** | 在 Cursor 里让 AI 直接扫描机场 |
+| **告警引擎（CLI）** | 航班评分、CSV/Excel 导出、定时循环扫描（`--loop`） |
+| **HTTP API** | `GET /api/scan?airport=PVD`，供网页和脚本调用 |
+| **GitHub Actions** | 定时扫描 **PVD**（美东 00:00 / 06:00 / 12:00 / 18:00），可选 Telegram 推送 |
+
+> **通知方式：** 目前支持 Telegram，尚未实现邮件推送。
+
+---
+
 ## 界面预览
 
 **搜索页** — 选择机场，扫描特殊航班。
@@ -22,18 +39,7 @@
 
 ---
 
-## 功能概览
-
-| 模块 | 说明 |
-|------|------|
-| **网页** (`web/`) | 输入机场码（PVD、JFK、LAX…）搜索，支持中英文界面 |
-| **HTTP API** (`api/`) | FastAPI：`GET /api/scan?airport=PVD` |
-| **告警引擎** (`alert_engine/`) | 命令行定时扫描、CSV/Excel 输出、可选 Telegram 推送 |
-| **MCP** (`mcp_server/`) | 在 Cursor 里让 AI 直接查航班 |
-
----
-
-## 快速开始（网页 Demo）
+## 安装
 
 **环境要求：** Python 3.10+
 
@@ -41,25 +47,123 @@
 git clone https://github.com/LYL55555/special-flight-alert.git
 cd special-flight-alert
 
-# 安装依赖（在仓库根目录执行，不要进 alert_engine 装）
+# 在仓库根目录执行，不要进 alert_engine 装
 pip install -r requirements.txt
 
 # 可选：Cursor MCP
 pip install -r mcp_server/requirements.txt
+```
 
-# 一键启动：API 8000 端口 + 网页 8080 端口
+**切勿把真实 Token 提交到 GitHub。** 凭证写在 `alert_engine/.env`（已 gitignore），或 GitHub **Repository Secrets**（CI 用），不要写进代码。
+
+---
+
+## Telegram 推送
+
+每次告警引擎扫描结束后，Bot 会发送**文字摘要**（新增 / 过期 / 当前特殊航班）和 **Excel 快照附件**。
+
+**默认机场：** **PVD**（GitHub Actions 工作流 `.github/workflows/run.yml` 同样扫描 PVD）。本地可用 `--airports` 指定其他机场。
+
+### 1. 创建 Bot
+
+1. 打开 Telegram，找到 [@BotFather](https://t.me/BotFather)。
+2. 发送 `/newbot`，按提示操作，记下返回的 **bot token**。
+
+### 2. 获取 chat ID
+
+1. 找到你刚创建的 Bot，发送 `/start`（**必须先发**，否则 Bot 无法给你发消息）。
+2. 在浏览器打开：
+
+   `https://api.telegram.org/bot<你的TOKEN>/getUpdates`
+
+   把 `<你的TOKEN>` 换成真实 token。
+3. 在返回的 JSON 里找到 `"chat":{"id":123456789}`，这个数字就是 **chat ID**。
+
+> 提示：也可以用 [@userinfobot](https://t.me/userinfobot) 查看你的数字用户 ID。
+
+### 3. 本地配置
+
+```bash
+cp alert_engine/.env.example alert_engine/.env
+```
+
+编辑 `alert_engine/.env`：
+
+```bash
+TELEGRAM_BOT_TOKEN=你的_bot_token
+TELEGRAM_CHAT_ID=你的_chat_id
+```
+
+### 4. 跑一次扫描
+
+```bash
+cd alert_engine
+python main.py --airports PVD
+```
+
+正常情况下你会收到：
+
+- **摘要消息** — 与上次扫描相比的航班变化
+- **Excel 附件** — 保存在 `alert_engine/alert data/`
+
+### 可选：每条告警单独推送
+
+默认只发摘要。若希望每条命中航班都单独来一条消息（繁忙机场会很吵），在 `.env` 里加上：
+
+```bash
+TELEGRAM_EACH_ALERT=1
+```
+
+### 定时推送（循环模式）
+
+```bash
+cd alert_engine
+python main.py --loop --poll-seconds 14400 --airports PVD
+```
+
+`14400` 表示每 4 小时一次。机场可在命令行指定，或在 `alert_engine/config.py` 里改默认列表。
+
+### GitHub Actions（CI）
+
+工作流执行 `python main.py --airports PVD`。在仓库 **Settings → Secrets and variables → Actions** 添加：
+
+- `TELEGRAM_BOT_TOKEN`
+- `TELEGRAM_CHAT_ID`
+
+也可在 **Actions** 页手动触发（`workflow_dispatch`）。
+
+---
+
+## 网页前端
+
+```bash
 ./scripts/run_demo.sh
 ```
 
-浏览器打开 **http://127.0.0.1:8080**，搜索 **PVD**、**JFK** 或 **LAX**。
-
-按 `Ctrl+C` 停止服务。
+启动 API（8000 端口）和网页（8080 端口）。浏览器打开 **http://127.0.0.1:8080**，搜索 **PVD**、**JFK** 或 **LAX**。按 `Ctrl+C` 停止。
 
 ### 端口被占用？
 
 ```bash
 ./scripts/stop_demo.sh   # 释放 8000 / 8080，顺带停掉 Docker
 ./scripts/run_demo.sh
+```
+
+### 网页如何连 API
+
+默认配置在 `web/config.js`：
+
+```javascript
+window.APP_CONFIG = {
+  apiBaseUrl: "http://127.0.0.1:8000",
+};
+```
+
+如果 API 跑在其他端口：
+
+```bash
+cp web/config.local.js.example web/config.local.js
+# 修改 apiBaseUrl（此文件不会进 Git）
 ```
 
 ### 只启动 API（不要网页）
@@ -77,40 +181,6 @@ python3 -m uvicorn api.main:app --host 127.0.0.1 --port 8000
 
 ---
 
-## 配置说明
-
-### 网页如何连 API
-
-默认配置在 `web/config.js`：
-
-```javascript
-window.APP_CONFIG = {
-  apiBaseUrl: "http://127.0.0.1:8000",
-};
-```
-
-如果 API 跑在其他端口，可以复制本地覆盖文件（不会进 Git）：
-
-```bash
-cp web/config.local.js.example web/config.local.js
-# 修改 apiBaseUrl
-```
-
-### 密钥与凭证（Telegram 等）
-
-**切勿把真实 Token 提交到 GitHub。**
-
-```bash
-cp alert_engine/.env.example alert_engine/.env
-# 编辑 alert_engine/.env，填入 TELEGRAM_BOT_TOKEN、TELEGRAM_CHAT_ID
-```
-
-- `.env` 已在 `.gitignore` 中
-- 仓库里只有 `.env.example`（空占位符）
-- GitHub Actions 如需 Telegram，请在仓库 **Settings → Secrets** 里配置，不要写在代码里
-
----
-
 ## Cursor MCP 用法
 
 1. 安装：`pip install -r mcp_server/requirements.txt` 和 `pip install -r requirements.txt`
@@ -123,12 +193,12 @@ cp alert_engine/.env.example alert_engine/.env
 
 ## 告警引擎（命令行）
 
-适合后台监控、导出 CSV/Excel、Telegram 摘要推送：
+适合后台监控、导出 CSV/Excel（配合上方 [Telegram 推送](#telegram-推送)）：
 
 ```bash
 cd alert_engine
 python main.py --airports PVD          # 单次扫描未来时刻表
-python main.py --live --airports BOS   # 实时半径模式
+python main.py --live --airports PVD   # 实时半径模式
 python main.py --loop --poll-seconds 14400
 python main.py --help
 ```
@@ -155,6 +225,7 @@ special-flight-alert/
 ├── web/                 # 静态前端
 ├── python/              # 内置 FlightRadarAPI SDK
 ├── mcp_server/          # Cursor MCP
+├── img/                 # README 截图
 ├── scripts/
 │   ├── install_deps.sh  # 安装依赖
 │   ├── run_demo.sh      # 本地一键 Demo
