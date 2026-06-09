@@ -1,7 +1,9 @@
-# Editable install from vendored upstream SDK in ../python (see repository root).
+# Install the vendored upstream SDK from ../python (see repository root).
 beautifulsoup4>=4.12
 curl_cffi>=0.7
+fastapi>=0.110
 openpyxl>=3.1
 python-dotenv>=1.0
 requests>=2.31
--e ../python
+uvicorn[standard]>=0.27
+../python

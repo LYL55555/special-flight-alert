@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Special Flight Watch</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <script src="./config.js"></script>
+  </head>
+  <body>
+    <main class="shell">
+      <section class="scan-deck" aria-label="Airport special flight scan">
+        <div class="radar-panel" aria-hidden="true">
+          <div class="radar-grid"></div>
+          <div class="radar-sweep"></div>
+          <div class="range-ring ring-one"></div>
+          <div class="range-ring ring-two"></div>
+          <div class="range-ring ring-three"></div>
+          <span class="plot plot-a"></span>
+          <span class="plot plot-b"></span>
+          <span class="plot plot-c"></span>
+          <span class="plot plot-d"></span>
+          <div class="scope-label">
+            <span>LIVE</span>
+            <strong id="scopeAirport">PVD</strong>
+          </div>
+        </div>
+
+        <div class="control-panel">
+          <div class="panel-actions">
+            <button type="button" id="languageToggle" class="language-toggle">中文</button>
+          </div>
+          <div class="masthead">
+            <p class="eyebrow" data-i18n="brand">Special Flight Watch</p>
+            <h1 data-i18n="headline">Find unusual aircraft near an airport.</h1>
+          </div>
+
+          <form class="scan-form" id="scanForm">
+            <label for="airportInput" data-i18n="airportLabel">Airport or city</label>
+            <div class="input-row">
+              <input
+                id="airportInput"
+                name="airport"
+                autocomplete="off"
+                inputmode="latin"
+                value="PVD"
+                placeholder="Try Providence, Boston, Xi'an, or PVD"
+                aria-describedby="scanHint airportSuggestions"
+              />
+              <button type="submit" id="scanButton">
+                <span data-i18n="scanButton">Search</span>
+              </button>
+            </div>
+            <div id="airportSuggestions" class="suggestions" role="listbox"></div>
+            <p id="scanHint" class="hint" data-i18n="scanHint">Search by city, airport name, or 3-letter airport code.</p>
+          </form>
+
+          <div class="status-strip" aria-live="polite">
+            <div>
+              <span class="metric-label" data-i18n="statusLabel">Status</span>
+              <strong id="statusText" data-i18n-dynamic="statusReady">Ready</strong>
+            </div>
+            <div>
+              <span class="metric-label" data-i18n="matchesLabel">Matches</span>
+              <strong id="countText">--</strong>
+            </div>
+            <div>
+              <span class="metric-label" data-i18n="sourceLabel">Data</span>
+              <strong id="sourceText">FR24</strong>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="results-band" aria-label="Scan results">
+        <div class="results-header">
+          <div>
+            <p class="eyebrow" data-i18n="boardEyebrow">Current Board</p>
+            <h2 id="resultTitle" data-i18n-dynamic="noScanTitle">No search yet</h2>
+          </div>
+          <div class="board-tools">
+            <time id="queryTime"></time>
+            <div class="tool-row">
+              <label>
+                <span data-i18n="showLabel">Show</span>
+                <select id="movementFilter">
+                  <option value="all" data-i18n="allFlights">All</option>
+                  <option value="arrival" data-i18n="arrivals">Arrivals</option>
+                  <option value="departure" data-i18n="departures">Departures</option>
+                </select>
+              </label>
+              <label>
+                <span data-i18n="airlineLabel">Airline</span>
+                <select id="airlineFilter">
+                  <option value="all" data-i18n="allAirlines">All airlines</option>
+                </select>
+              </label>
+              <label>
+                <span data-i18n="sortLabel">Sort</span>
+                <select id="sortMode">
+                  <option value="time-asc" data-i18n="sortTimeAsc">Time early-late</option>
+                  <option value="time-desc" data-i18n="sortTimeDesc">Time late-early</option>
+                  <option value="airline-asc" data-i18n="sortAirlineAsc">Airline A-Z</option>
+                  <option value="airline-desc" data-i18n="sortAirlineDesc">Airline Z-A</option>
+                  <option value="type-asc" data-i18n="sortAircraftAsc">Aircraft A-Z</option>
+                  <option value="type-desc" data-i18n="sortAircraftDesc">Aircraft Z-A</option>
+                  <option value="registration-asc" data-i18n="sortRegAsc">Registration A-Z</option>
+                  <option value="registration-desc" data-i18n="sortRegDesc">Registration Z-A</option>
+                </select>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div id="emptyState" class="empty-state">
+          <p data-i18n="emptyState">Search for an airport to see unusual aircraft, special liveries, and rare types.</p>
+        </div>
+
+        <div id="resultsList" class="results-list"></div>
+      </section>
+    </main>
+
+    <template id="flightCardTemplate">
+      <article class="flight-card">
+        <a class="aircraft-media" target="_blank" rel="noreferrer">
+          <img alt="" loading="lazy" />
+          <span class="photo-credit"></span>
+          <div class="aircraft-fallback">
+            <span class="fallback-type"></span>
+            <span class="fallback-reg"></span>
+          </div>
+        </a>
+
+        <div class="flight-card-top">
+          <div class="time-block">
+            <span class="time-label"></span>
+            <strong class="primary-time"></strong>
+          </div>
+          <div class="flight-id">
+            <p class="flight-kicker"></p>
+            <h3></h3>
+          </div>
+        </div>
+
+        <div class="route-line">
+          <span class="airport origin"></span>
+          <span class="route-track" aria-hidden="true"></span>
+          <span class="airport destination"></span>
+        </div>
+
+        <dl class="flight-grid">
+          <div>
+            <dt data-i18n="registration">Registration</dt>
+            <dd class="registration"></dd>
+          </div>
+          <div>
+            <dt data-i18n="aircraft">Aircraft</dt>
+            <dd class="aircraft-type"></dd>
+          </div>
+          <div>
+            <dt data-i18n="airline">Airline</dt>
+            <dd class="operator"></dd>
+          </div>
+          <div>
+            <dt data-i18n="movement">Direction</dt>
+            <dd class="movement"></dd>
+          </div>
+        </dl>
+
+        <div class="livery-block">
+          <span class="livery-chip"></span>
+          <p class="livery-description"></p>
+        </div>
+
+        <details>
+          <summary data-i18n="details">Details</summary>
+          <dl class="details-grid">
+            <div>
+              <dt data-i18n="scheduledDeparture">Scheduled departure</dt>
+              <dd class="scheduled-departure"></dd>
+            </div>
+            <div>
+              <dt data-i18n="estimatedDeparture">Estimated departure</dt>
+              <dd class="estimated-departure"></dd>
+            </div>
+            <div>
+              <dt data-i18n="scheduledArrival">Scheduled arrival</dt>
+              <dd class="scheduled-arrival"></dd>
+            </div>
+            <div>
+              <dt data-i18n="estimatedArrival">Estimated arrival</dt>
+              <dd class="estimated-arrival"></dd>
+            </div>
+            <div>
+              <dt data-i18n="whyListed">Why listed</dt>
+              <dd class="reasons"></dd>
+            </div>
+          </dl>
+        </details>
+
+        <div class="card-actions">
+          <a class="fr24-link" target="_blank" rel="noreferrer">FR24</a>
+          <a class="photo-link" target="_blank" rel="noreferrer" data-i18n="photos">Photos</a>
+        </div>
+      </article>
+    </template>
+
+    <script src="./app.js"></script>
+  </body>
+</html>

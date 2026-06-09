@@ -82,6 +82,7 @@ class EngineConfig:
                 "A3ST",
                 "C17",
                 "C5M",
+                "C919",
                 "K35R",
                 "K35E",
                 "C30J",
