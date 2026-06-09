@@ -81,6 +81,26 @@ pip install -r mcp_server/requirements.txt
 
 > 提示：也可以用 [@userinfobot](https://t.me/userinfobot) 查看你的数字用户 ID。
 
+#### 群聊 / 频道 chat ID
+
+如果你想把告警推送到 Telegram 群聊，而不是私聊：
+
+1. 把 bot 加入目标群聊。
+2. 在群里发送一条消息，例如 `/start` 或 `hello`。
+3. 再打开：
+
+   `https://api.telegram.org/bot<你的TOKEN>/getUpdates`
+
+4. 在返回 JSON 里找到对应群聊的 `"chat":{"id":...}`。
+
+群聊的 chat_id 通常是负数，例如：
+
+```bash
+TELEGRAM_CHAT_ID=-1001234567890
+```
+
+注意：[@userinfobot](https://t.me/userinfobot) 通常只能拿到你的个人 user ID，不一定适用于群聊。群聊推送请优先使用 `getUpdates` 里返回的 group / supergroup chat id。
+
 ### 3. 本地配置
 
 ```bash
@@ -93,6 +113,14 @@ cp alert_engine/.env.example alert_engine/.env
 TELEGRAM_BOT_TOKEN=你的_bot_token
 TELEGRAM_CHAT_ID=你的_chat_id
 ```
+
+#### 安全提醒
+
+- 不要把 `TELEGRAM_BOT_TOKEN` 写进代码。
+- 不要把 `alert_engine/.env` 提交到 GitHub。
+- 不要在截图、issue、公开聊天里暴露 bot token。
+- 如果 token 泄露，请立刻去 [@BotFather](https://t.me/BotFather) 重新生成 token。
+- GitHub Actions 使用的 token 应该放在 **Repository Secrets**，而不是写进 workflow 文件。
 
 ### 4. 跑一次扫描
 
@@ -131,6 +159,8 @@ python main.py --loop --poll-seconds 14400 --airports PVD
 - `TELEGRAM_CHAT_ID`
 
 也可在 **Actions** 页手动触发（`workflow_dispatch`）。
+
+> **注意：** GitHub Actions 运行在云端数据中心 IP 上，Flightradar24 / Cloudflare 可能会返回 403。因此 GitHub Actions 即使 Telegram 配置正确，也可能只推送空结果或 `degraded` 状态。这不是 Telegram 配置错误，而是 FR24 对云端 IP 的限制。本地家庭网络或通过本机 tunnel 运行通常更稳定。
 
 ---
 

@@ -81,6 +81,26 @@ After each alert-engine run, the bot sends a **text digest** (new / expired / cu
 
 > Tip: [@userinfobot](https://t.me/userinfobot) can also show your numeric user ID.
 
+#### Group / channel chat ID
+
+If you want to send alerts to a Telegram group instead of a private chat:
+
+1. Add the bot to the target group.
+2. Send a message in the group, such as `/start` or `hello`.
+3. Open:
+
+   `https://api.telegram.org/bot<YOUR_TOKEN>/getUpdates`
+
+4. Find the group / supergroup entry in the JSON response and copy its `"chat":{"id":...}` value.
+
+Group chat IDs are usually negative numbers, for example:
+
+```bash
+TELEGRAM_CHAT_ID=-1001234567890
+```
+
+Note: [@userinfobot](https://t.me/userinfobot) usually returns your personal user ID, which may not work for group alerts. For group chats, prefer the `chat.id` returned by `getUpdates`.
+
 ### 3. Configure (local)
 
 ```bash
@@ -93,6 +113,14 @@ Edit `alert_engine/.env`:
 TELEGRAM_BOT_TOKEN=your_bot_token_here
 TELEGRAM_CHAT_ID=your_chat_id_here
 ```
+
+#### Security notes
+
+- Do not hard-code `TELEGRAM_BOT_TOKEN` in source files.
+- Do not commit `alert_engine/.env` to GitHub.
+- Do not expose the bot token in screenshots, issues, or public chats.
+- If the token leaks, regenerate it immediately via [@BotFather](https://t.me/BotFather).
+- For GitHub Actions, store the token in **Repository Secrets**, not in workflow files.
 
 ### 4. Run a scan
 
@@ -133,6 +161,8 @@ The workflow runs `python main.py --airports PVD` on a schedule. Add the same tw
 - `TELEGRAM_CHAT_ID`
 
 You can also trigger a run manually from the **Actions** tab (`workflow_dispatch`).
+
+> **Note:** GitHub Actions runs from cloud/datacenter IPs, which Flightradar24 / Cloudflare may block with 403 responses. So even if Telegram is configured correctly, scheduled CI runs may send empty or degraded results. This is not a Telegram setup issue. Local residential-network runs, or a local API exposed through a tunnel, are usually more reliable.
 
 ---
 
