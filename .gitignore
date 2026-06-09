@@ -26,6 +26,7 @@ scratch*.csv
 
 # macOS / editor
 .DS_Store
+web/config.local.js
 ._*
 .idea/
 

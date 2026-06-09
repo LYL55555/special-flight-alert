@@ -6,7 +6,12 @@ function resolveApiBaseUrls() {
   const isLocal = host === "localhost" || host === "127.0.0.1";
 
   if (isLocal) {
-    urls.push("http://127.0.0.1:8000");
+    if (config.localApiBaseUrl) {
+      urls.push(String(config.localApiBaseUrl).replace(/\/$/, ""));
+    }
+    for (const port of [8000, 8001, 8002, 8003]) {
+      urls.push(`http://127.0.0.1:${port}`);
+    }
   }
   if (config.tunnelApiBaseUrl) {
     urls.push(String(config.tunnelApiBaseUrl).replace(/\/$/, ""));
