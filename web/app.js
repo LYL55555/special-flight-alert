@@ -1,11 +1,9 @@
 const APP_CONFIG = window.APP_CONFIG || {};
 
-function resolveApiBaseUrls() {
-  const urls = APP_CONFIG.apiBaseUrls;
-  if (!Array.isArray(urls) || urls.length === 0) {
-    return [];
-  }
-  return [...new Set(urls.map((u) => String(u).replace(/\/$/, "")).filter(Boolean))];
+function scanRequestUrl(airport) {
+  const base = String(APP_CONFIG.apiBaseUrl || "").replace(/\/$/, "");
+  const path = `/api/scan?airport=${encodeURIComponent(airport)}`;
+  return base ? `${base}${path}` : path;
 }
 
 const AIRPORTS = [
@@ -691,53 +689,38 @@ function renderFlights(payload, options = {}) {
   });
 }
 
-function apiSourceLabel(base, payload) {
-  if (base.includes("127.0.0.1") || base.includes("localhost")) return "Local";
-  if (base.includes("onrender.com")) return payload.cached ? `${t("statusCached")} ${payload.cache_age_seconds}s` : "Render";
-  if (base.includes("flight-api.")) return "Tunnel";
+function apiSourceLabel(payload) {
+  if (payload.upstreamBase === "tunnel") return "Tunnel";
+  if (payload.upstreamBase === "render") return payload.cached ? `${t("statusCached")} ${payload.cache_age_seconds}s` : "Render";
+  if (payload.proxiedBy === "vercel") return "Live";
   return payload.cached ? `${t("statusCached")} ${payload.cache_age_seconds}s` : "FR24";
 }
 
-async function fetchScanWithFailover(airport) {
-  const bases = resolveApiBaseUrls();
-  let lastError = null;
+async function fetchScan(airport) {
+  const url = scanRequestUrl(airport);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 25000);
 
-  if (bases.length === 0) {
-    throw new Error(t("searchErrorBody"));
-  }
+  try {
+    const res = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeout);
 
-  for (const base of bases) {
+    let data = null;
     try {
-      const url = `${base.replace(/\/$/, "")}/api/scan?airport=${encodeURIComponent(airport)}`;
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 20000);
-
-      const res = await fetch(url, { signal: controller.signal });
-      clearTimeout(timeout);
-
-      let data = null;
-      try {
-        data = await res.json();
-      } catch (e) {
-        throw new Error(`Invalid JSON from ${base}`);
-      }
-
-      if (!res.ok) {
-        const msg = data?.detail || data?.message || `HTTP ${res.status} from ${base}`;
-        if (res.status >= 500 || res.status === 429) {
-          throw new Error(msg);
-        }
-        return { data, apiBaseUrl: base };
-      }
-
-      return { data, apiBaseUrl: base };
+      data = await res.json();
     } catch (e) {
-      lastError = e;
-      console.warn("API failed:", base, e);
+      throw new Error("Invalid JSON from API");
     }
-  }
 
-  throw lastError || new Error(t("degradedBody"));
+    if (!res.ok && res.status !== 503) {
+      throw new Error(data?.detail || data?.message || `HTTP ${res.status}`);
+    }
+
+    return data;
+  } catch (e) {
+    clearTimeout(timeout);
+    throw e;
+  }
 }
 
 async function scanAirport(airport) {
@@ -753,8 +736,8 @@ async function scanAirport(airport) {
   emptyState.querySelector("p").textContent = t("searchingBody");
 
   try {
-    const { data: payload, apiBaseUrl: base } = await fetchScanWithFailover(airport);
-    sourceText.textContent = apiSourceLabel(base, payload);
+    const payload = await fetchScan(airport);
+    sourceText.textContent = apiSourceLabel(payload);
 
     renderFlights(payload);
     if (payload.status === "degraded") {

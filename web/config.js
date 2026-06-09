@@ -1,8 +1,5 @@
-// Production API order: Cloudflare Named Tunnel (primary) → Render (fallback).
-// Replace YOUR_DOMAIN.com with your real domain before going live.
+// Production: same-origin Vercel proxy at /api/scan (see web/api/scan.js).
+// Tunnel URL lives in Vercel env TUNNEL_API_BASE_URL — not in this repo.
 window.APP_CONFIG = {
-  apiBaseUrls: [
-    "https://flight-api.YOUR_DOMAIN.com",
-    "https://special-flight-alert.onrender.com",
-  ],
+  apiBaseUrl: "",
 };

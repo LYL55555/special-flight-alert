@@ -36,9 +36,9 @@ find_free_port() {
 
 write_local_config() {
   cat >"$LOCAL_CONFIG" <<EOF
-window.SPECIAL_FLIGHT_CONFIG = Object.assign(window.SPECIAL_FLIGHT_CONFIG || {}, {
-  localApiBaseUrl: "http://127.0.0.1:${API_PORT}",
-});
+window.APP_CONFIG = {
+  apiBaseUrl: "http://127.0.0.1:${API_PORT}",
+};
 EOF
 }
 

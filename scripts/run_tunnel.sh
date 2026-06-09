@@ -37,5 +37,5 @@ if [[ ! -f "$CONFIG" ]]; then
 fi
 
 echo "Running named tunnel: $TUNNEL_NAME"
-echo "Fixed API URL: https://flight-api.<your-domain> (set in web/config.js)"
+echo "Set TUNNEL_API_BASE_URL in Vercel Project Settings (not in GitHub)."
 cloudflared tunnel run "$TUNNEL_NAME"
