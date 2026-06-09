@@ -42,6 +42,49 @@ const AIRPORTS = [
   { code: "XMN", name: "Xiamen Gaoqi International", city: "Xiamen", region: "Fujian, China", aliases: ["xiamen", "厦门", "高崎"] },
 ];
 
+const AIRLINE_ZH = {
+  "Air China": "中国国际航空",
+  "Alaska Airlines": "阿拉斯加航空",
+  "American Airlines": "美国航空",
+  "British Airways": "英国航空",
+  "Breeze Airways": "微风航空",
+  "Cathay Pacific": "国泰航空",
+  "China Airlines": "中华航空",
+  "China Eastern": "中国东方航空",
+  "China Eastern Airlines": "中国东方航空",
+  "China Southern": "中国南方航空",
+  "China Southern Airlines": "中国南方航空",
+  "Delta Air Lines": "达美航空",
+  "EVA Air": "长荣航空",
+  "Frontier Airlines": "边疆航空",
+  "Hainan Airlines": "海南航空",
+  "Hong Kong Airlines": "香港航空",
+  "JetBlue": "捷蓝航空",
+  "Juneyao Air": "吉祥航空",
+  "Shanghai Airlines": "上海航空",
+  "Shenzhen Airlines": "深圳航空",
+  "Sichuan Airlines": "四川航空",
+  "Southwest Airlines": "西南航空",
+  "Spirit Airlines": "精神航空",
+  "Spring Airlines": "春秋航空",
+  "United Airlines": "美联航",
+  "Xiamen Air": "厦门航空",
+};
+
+const LIVERY_ZH = {
+  "Boston Bruins Livery": "波士顿棕熊队涂装",
+  "BlueUnity Tailfin": "BlueUnity 尾翼",
+  "Disneyland-Pixar Toy Story Livery": "迪士尼-皮克斯《玩具总动员》涂装",
+  "First Mint Livery": "首航薄荷涂装",
+  "Fly-Fi / Exede Internet": "Fly-Fi 网络涂装",
+  "I ♥ NY Livery": "我爱纽约涂装",
+  "JetBlue for Good Livery": "捷蓝公益涂装",
+  "NY Jets Livery": "纽约喷气机队涂装",
+  "Oneworld Livery": "寰宇一家涂装",
+  "SkyTeam Livery": "天合联盟涂装",
+  "Star Alliance Livery": "星空联盟涂装",
+};
+
 const COPY = {
   en: {
     brand: "Special Flight Watch",
@@ -209,8 +252,47 @@ function t(key, params = {}) {
   return value;
 }
 
+function localizeAirline(name) {
+  const raw = clean(name, "").trim();
+  if (!raw || currentLanguage !== "zh") return raw;
+  if (AIRLINE_ZH[raw]) return AIRLINE_ZH[raw];
+  const normalized = normalizeAirlineName(raw);
+  return AIRLINE_ZH[normalized] || raw;
+}
+
+function localizeLivery(name) {
+  const raw = clean(name, "").trim();
+  if (!raw || currentLanguage !== "zh") return raw;
+  if (LIVERY_ZH[raw]) return LIVERY_ZH[raw];
+  const withoutSuffix = raw.replace(/\s+livery$/i, "").trim();
+  if (withoutSuffix !== raw) {
+    const base = LIVERY_ZH[withoutSuffix] || withoutSuffix;
+    return `${base}涂装`;
+  }
+  return raw;
+}
+
+function localizeOperator(raw) {
+  const value = clean(raw, "").trim();
+  if (!value || currentLanguage !== "zh") return value;
+  const match = value.match(/^(.+?)\s*\(([^)]+)\)\s*$/);
+  if (match) {
+    return `${localizeAirline(match[1].trim())}（${localizeLivery(match[2].trim())}）`;
+  }
+  return localizeAirline(value);
+}
+
+function localizeReason(reason) {
+  const raw = clean(reason, "").trim();
+  if (!raw || currentLanguage !== "zh") return raw;
+  const special = raw.match(/^Special livery:\s*(.+)$/i);
+  if (special) return `${t("specialLivery")}：${localizeLivery(special[1].trim())}`;
+  return raw;
+}
+
 function applyLanguage() {
   document.documentElement.lang = currentLanguage === "zh" ? "zh-Hans" : "en";
+  document.body.classList.toggle("lang-zh", currentLanguage === "zh");
   document.querySelectorAll("[data-i18n]").forEach((node) => {
     node.textContent = t(node.dataset.i18n);
   });
@@ -348,8 +430,7 @@ function formatShortDateTime(value) {
   const hour12 = hour24 % 12 || 12;
   const tz = tzRaw ? ` ${tzRaw}` : "";
   if (currentLanguage === "zh") {
-    const period = hour24 >= 12 ? "下午" : "上午";
-    return `${Number(monthRaw)}月${Number(dayRaw)}日 ${period}${hour12}:${minuteRaw}${tz}`;
+    return `${Number(monthRaw)}月${Number(dayRaw)}日 ${hourRaw}:${minuteRaw}${tz}`;
   }
   return `${month} ${day}, ${hour12}:${minuteRaw} ${suffix}${tz}`;
 }
@@ -423,25 +504,27 @@ function matchTitle(flight) {
   const military = reasons.find((reason) => /military|operator/i.test(reason));
   const rare = reasons.find((reason) => /rare|A380|A388|B747|B74|C-?17|C5|AN/i.test(reason));
   const special = reasons.find((reason) => /livery/i.test(reason));
+  const sep = currentLanguage === "zh" ? "：" : ": ";
 
-  if (livery) return `${t("specialLivery")}: ${livery}`;
-  if (rare && type) return `${t("rareAircraft")}: ${type}`;
+  if (livery) return `${t("specialLivery")}${sep}${localizeLivery(livery)}`;
+  if (rare && type) return `${t("rareAircraft")}${sep}${type}`;
   if (military) return military;
-  if (special) return special;
-  if (type) return `${t("rareAircraft")}: ${type}`;
-  return reasons[0] || "Rule match";
+  if (special) return localizeReason(special);
+  if (type) return `${t("rareAircraft")}${sep}${type}`;
+  return localizeReason(reasons[0]) || "Rule match";
 }
 
 function matchDescription(flight) {
   const reasons = flight.reasons || [];
   const title = matchTitle(flight).toLowerCase();
-  if (flight.livery_description && flight.livery_description.toLowerCase() !== title) {
-    return flight.livery_description;
+  if (flight.livery_description) {
+    const localized = localizeOperator(flight.livery_description);
+    if (localized.toLowerCase() !== title) return localized;
   }
-  const uniqueReasons = [...new Set(reasons)].filter((reason) => {
-    return reason && reason.toLowerCase() !== title;
-  });
-  if (uniqueReasons.length > 0) return uniqueReasons.join(", ");
+  const uniqueReasons = [...new Set(reasons)]
+    .map(localizeReason)
+    .filter((reason) => reason && reason.toLowerCase() !== title);
+  if (uniqueReasons.length > 0) return uniqueReasons.join(currentLanguage === "zh" ? "，" : ", ");
   return "";
 }
 
@@ -544,7 +627,7 @@ function updateAirlineFilter(payload) {
   airlines.forEach((airline) => {
     const option = document.createElement("option");
     option.value = airline;
-    option.textContent = airline;
+    option.textContent = localizeAirline(airline);
     airlineFilter.append(option);
   });
 
@@ -657,7 +740,9 @@ function renderFlights(payload, options = {}) {
     card.querySelector(".destination").textContent = routeEndpoint(flight, "destination");
     card.querySelector(".registration").textContent = clean(flight.registration, t("fallbackUnknown"));
     card.querySelector(".aircraft-type").textContent = clean(flight.aircraft_type, t("fallbackUnknown"));
-    card.querySelector(".operator").textContent = clean(flight.operator_display || flight.operator, t("fallbackUnknown"));
+    card.querySelector(".operator").textContent = localizeOperator(
+      flight.operator_display || flight.operator
+    ) || t("fallbackUnknown");
     card.querySelector(".movement").textContent = flight.movement === "arrival" ? t("arrivals") : flight.movement === "departure" ? t("departures") : clean(flight.movement, t("fallbackUnknown"));
 
     card.querySelector(".livery-chip").textContent = matchTitle(flight);

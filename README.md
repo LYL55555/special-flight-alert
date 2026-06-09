@@ -10,6 +10,18 @@ This repo is designed as a **local-first** project: run the API and web UI on yo
 
 ---
 
+## Screenshots
+
+**Search** — pick an airport and scan for special flights.
+
+![Search screen](img/dash1-en.png)
+
+**Results** — filter by airline, sort by time, and browse special liveries with photos.
+
+![Flight board](img/dash2-en.png)
+
+---
+
 ## What you get
 
 | Component | Description |

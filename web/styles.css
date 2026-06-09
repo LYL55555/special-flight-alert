@@ -502,6 +502,8 @@ time {
 }
 
 .flight-card {
+  container-type: inline-size;
+  container-name: flight-card;
   animation: rise 420ms ease both;
   animation-delay: var(--delay);
   border: 1px solid var(--line);
@@ -618,7 +620,8 @@ h3 {
   text-transform: uppercase;
 }
 
-.time-block strong {
+.time-block strong,
+.primary-time {
   display: block;
   margin-top: 5px;
   max-width: 100%;
@@ -627,6 +630,39 @@ h3 {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+html[lang="zh-Hans"] .primary-time,
+body.lang-zh .primary-time {
+  font-size: 0.84rem;
+  font-weight: 800;
+  line-height: 1.35;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: unset;
+  word-break: keep-all;
+}
+
+@container flight-card (max-width: 520px) {
+  .flight-card-top {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .flight-id {
+    max-width: none;
+  }
+
+  .flight-kicker,
+  .flight-id h3 {
+    text-align: left;
+  }
+
+  html[lang="zh-Hans"] .primary-time,
+  body.lang-zh .primary-time {
+    font-size: 0.8rem;
+  }
 }
 
 .flight-id {
@@ -696,6 +732,10 @@ dd {
   color: var(--ink);
   font-weight: 900;
   text-transform: uppercase;
+}
+
+html[lang="zh-Hans"] .livery-chip {
+  text-transform: none;
 }
 
 .livery-description {

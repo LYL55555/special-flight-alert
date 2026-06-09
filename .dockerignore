@@ -1,0 +1,13 @@
+.git
+.github
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+**/.env
+node_modules
+alert_engine/alert data
+alert_engine/data/*.xlsx
+*.md
+docs
+nodejs
+tests
